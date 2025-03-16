@@ -1,0 +1,150 @@
+import java.util.*;
+
+class Process {
+    String id;
+    int arrivalTime, burstTime, waitingTime, turnaroundTime, remainingTime;
+
+    public Process(String id, int arrivalTime, int burstTime) {
+        this.id = id;
+        this.arrivalTime = arrivalTime;
+        this.burstTime = burstTime;
+        this.remainingTime = burstTime;
+    }
+}
+
+public class CPUSchedulingSimulator {
+    static Scanner scanner = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        while (true) {
+            System.out.println("\nCPU Scheduling Simulator");
+            System.out.println("1. First-Come, First-Served (FCFS)");
+            System.out.println("2. Shortest-Job-First (SJF)");
+            System.out.println("3. Shortest-Remaining-Time (SRT)");
+            System.out.println("4. Round Robin (RR)");
+            System.out.println("5. Exit");
+            System.out.print("Select an option: ");
+            
+            int choice = scanner.nextInt();
+            if (choice == 5) break;
+            
+            List<Process> processes = getProcesses();
+            switch (choice) {
+                case 1 -> fcfs(processes);
+                case 2 -> sjf(processes);
+                case 3 -> srt(processes);
+                case 4 -> roundRobin(processes);
+                default -> System.out.println("Invalid choice. Try again.");
+            }
+        }
+    }
+
+    private static List<Process> getProcesses() {
+        System.out.print("Enter number of processes: ");
+        int n = scanner.nextInt();
+        List<Process> processes = new ArrayList<>();
+        
+        for (int i = 0; i < n; i++) {
+            System.out.print("Enter Process ID: ");
+            String id = scanner.next();
+            System.out.print("Enter Arrival Time: ");
+            int at = scanner.nextInt();
+            System.out.print("Enter Burst Time: ");
+            int bt = scanner.nextInt();
+            if (at < 0 || bt <= 0) {
+                System.out.println("Invalid input. Arrival time must be >= 0 and Burst time > 0.");
+                i--;
+                continue;
+            }
+            processes.add(new Process(id, at, bt));
+        }
+        return processes;
+    }
+
+    private static void fcfs(List<Process> processes) {
+        processes.sort(Comparator.comparingInt(p -> p.arrivalTime));
+        int currentTime = 0, totalWT = 0, totalTAT = 0;
+
+        System.out.println("\nGantt Chart:");
+        for (Process p : processes) {
+            if (currentTime < p.arrivalTime) {
+                currentTime = p.arrivalTime;
+            }
+            System.out.print(" | " + p.id);
+            p.waitingTime = currentTime - p.arrivalTime;
+            p.turnaroundTime = p.waitingTime + p.burstTime;
+            currentTime += p.burstTime;
+            totalWT += p.waitingTime;
+            totalTAT += p.turnaroundTime;
+        }
+        System.out.println(" |\n");
+        displayResults(processes, totalWT, totalTAT);
+    }
+
+    private static void sjf(List<Process> processes) {
+        processes.sort(Comparator.comparingInt(p -> p.burstTime));
+        fcfs(processes);
+    }
+
+    private static void srt(List<Process> processes) {
+        int totalWT = 0, totalTAT = 0, currentTime = 0, completed = 0;
+        
+        while (completed < processes.size()) {
+            Process shortest = null;
+            for (Process p : processes) {
+                if (p.arrivalTime <= currentTime && p.remainingTime > 0) {
+                    if (shortest == null || p.remainingTime < shortest.remainingTime) {
+                        shortest = p;
+                    }
+                }
+            }
+            if (shortest == null) {
+                currentTime++;
+                continue;
+            }
+            shortest.remainingTime--;
+            currentTime++;
+            if (shortest.remainingTime == 0) {
+                shortest.turnaroundTime = currentTime - shortest.arrivalTime;
+                shortest.waitingTime = shortest.turnaroundTime - shortest.burstTime;
+                totalWT += shortest.waitingTime;
+                totalTAT += shortest.turnaroundTime;
+                completed++;
+            }
+        }
+        displayResults(processes, totalWT, totalTAT);
+    }
+
+    private static void roundRobin(List<Process> processes) {
+        System.out.print("Enter Time Quantum: ");
+        int quantum = scanner.nextInt();
+        int currentTime = 0, totalWT = 0, totalTAT = 0;
+        Queue<Process> queue = new LinkedList<>(processes);
+        
+        while (!queue.isEmpty()) {
+            Process p = queue.poll();
+            if (p.remainingTime > quantum) {
+                currentTime += quantum;
+                p.remainingTime -= quantum;
+                queue.add(p);
+            } else {
+                currentTime += p.remainingTime;
+                p.remainingTime = 0;
+                p.turnaroundTime = currentTime - p.arrivalTime;
+                p.waitingTime = p.turnaroundTime - p.burstTime;
+                totalWT += p.waitingTime;
+                totalTAT += p.turnaroundTime;
+            }
+        }
+        displayResults(processes, totalWT, totalTAT);
+    }
+
+    private static void displayResults(List<Process> processes, int totalWT, int totalTAT) {
+        System.out.println("\nProcess\tAT\tBT\tWT\tTAT");
+        for (Process p : processes) {
+            System.out.printf("%s\t%d\t%d\t%d\t%d\n", p.id, p.arrivalTime, p.burstTime, p.waitingTime, p.turnaroundTime);
+        }
+        System.out.printf("\nAverage Waiting Time: %.2f\n", (double) totalWT / processes.size());
+        System.out.printf("Average Turnaround Time: %.2f\n", (double) totalTAT / processes.size());
+    }
+}
